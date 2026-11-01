@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>看護記録ツール</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="看護記録">
+<meta name="theme-color" content="#0d6b6e">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<style>
+  /* レイアウト: 上に短い入力(選ぶだけ+一言)、下に生成された4項目の記録。コピーは下部固定バー。スマホ優先 */
+  :root {
+    --bg: #f3f6f6;
+    --surface: #ffffff;
+    --fg: #17292b;
+    --muted: #5b6f72;
+    --line: #d3dedf;
+    --accent: #0d6b6e;
+    --accent-fg: #ffffff;
+    --accent-soft: #dcefef;
+    --warn: #a4521a;
+    --warn-soft: #f6e8dc;
+    --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+    --font-body: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1a1b; --surface: #17262a; --fg: #e4eeee; --muted: #93a8aa;
+      --line: #2b4044; --accent: #5ec2c4; --accent-fg: #07201f; --accent-soft: #1d3a3d;
+      --warn: #e0a070; --warn-soft: #3a2a1d;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1a1b; --surface: #17262a; --fg: #e4eeee; --muted: #93a8aa;
+    --line: #2b4044; --accent: #5ec2c4; --accent-fg: #07201f; --accent-soft: #1d3a3d;
+    --warn: #e0a070; --warn-soft: #3a2a1d;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+    padding-inline: 16px; padding-block: 20px 130px;
+  }
+  .wrap { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 28px; }
+  h1 { font-family: var(--font-display); font-size: 1.5rem; margin: 0; line-height: 1.3; text-wrap: balance; }
+  h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 0; line-height: 1.4; text-wrap: balance; }
+  h3 { font-size: .8rem; letter-spacing: .06em; color: var(--muted); margin: 0; font-weight: 400; }
+  .lead { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+  .privacy { font-size: .82rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; margin: 0; }
+  .note { font-size: .8rem; color: var(--muted); margin: 0; }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 150px; }
+  .field label { font-size: .78rem; letter-spacing: .06em; color: var(--muted); }
+  input[type="date"], input[type="time"], input[type="text"], textarea {
+    font: inherit; color: var(--fg); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; width: 100%; min-width: 0;
+  }
+  textarea { min-height: 7em; resize: vertical; line-height: 1.7; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  ::placeholder { color: var(--muted); opacity: .8; }
+
+  .sec { display: flex; flex-direction: column; gap: 16px; padding-top: 18px; border-top: 2px solid var(--fg); }
+  .item { display: flex; flex-direction: column; gap: 6px; }
+  .fold {
+    font: inherit; font-family: var(--font-display); font-size: 1.05rem; line-height: 1.4; font-weight: inherit;
+    background: transparent; color: var(--fg); border: 0; padding: 4px 0; cursor: pointer;
+    display: flex; align-items: baseline; gap: 8px; text-align: left; width: 100%; min-height: 40px; text-wrap: initial;
+  }
+  .fold > span:nth-child(2) { flex: 1; min-width: 0; }
+  .fold-mark { flex: none; }
+  .fold:hover { color: var(--accent); }
+  .fold-mark { display: inline-block; width: 1em; transition: transform .12s; color: var(--muted); }
+  .fold[aria-expanded="true"] .fold-mark { transform: rotate(90deg); }
+  .fold-sum { font-family: var(--font-body, inherit); font-size: .8rem; color: var(--muted); font-weight: 400; }
+  .fold-body { display: flex; flex-direction: column; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font: inherit; font-size: .9rem; line-height: 1.4;
+    background: var(--surface); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; min-height: 38px;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 700; }
+
+  .btn {
+    font: inherit; font-size: .9rem; background: transparent; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 6px; padding: 8px 14px; cursor: pointer; min-height: 40px;
+  }
+  .btn:hover { background: var(--accent-soft); }
+  .btn.danger { color: var(--warn); border-color: var(--warn); }
+  .btn.danger:hover { background: var(--warn-soft); }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); font-weight: 700; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn[disabled] { opacity: .55; cursor: default; }
+  .genrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .genrow .btn.primary { min-height: 48px; font-size: 1.05rem; padding-inline: 22px; }
+  .status { font-size: .85rem; color: var(--muted); }
+
+  .out { display: flex; flex-direction: column; gap: 6px; }
+  .out-box { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+  .out-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 12px; background: var(--accent-soft); border-bottom: 1px solid var(--line); }
+  .out-head h3 { color: var(--fg); font-size: .8rem; flex: 1; min-width: 0; }
+  .copy-one { min-height: 36px; padding: 4px 12px; font-size: .85rem; flex: none; background: var(--surface); }
+  .copy-one.done { background: var(--accent); color: var(--accent-fg); }
+  .out-box textarea { min-height: 6.5em; border: 0; border-radius: 0; }
+  .confirm { background: var(--warn-soft); border-radius: 6px; padding: 10px 14px; font-size: .9rem; }
+  .confirm h3 { color: var(--warn); margin-bottom: 4px; }
+  .confirm pre { margin: 0; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .opt { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+  .opt input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .bar-in { max-width: 720px; margin-inline: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .bar .btn.primary { flex: 1 1 200px; min-height: 46px; font-size: 1rem; }
+  .bar .btn:not(.primary) { min-height: 46px; }
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    background: var(--fg); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-size: .9rem; z-index: 10;
+    max-width: calc(100% - 32px); text-align: center;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, .chip { transition: background .12s, border-color .12s; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>看護記録ツール</h1>
+    <p class="lead">当てはまる項目を選び、必要なところだけ一言書き足します。「文章を作る」で4項目の記録文になります。</p>
+  </header>
+  <p class="privacy" id="privacy">「文章を作る」を押すと、選んだ内容とメモがClaudeに送られます。利用者の氏名など個人を特定できる情報は入れないでください。入力内容はこの端末のブラウザにだけ保存されます。</p>
+
+  <section class="meta" aria-label="訪問日時">
+    <div class="field"><label for="date">訪問日</label><input type="date" id="date"></div>
+    <div class="field"><label for="time">訪問時刻</label><input type="time" id="time"></div>
+  </section>
+
+  <div id="inputs" class="wrap" style="gap:28px"></div>
+
+  <section class="sec" aria-label="その他メモ">
+    <div class="item">
+      <h2><label for="memo">その他メモ（自由記入）</label></h2>
+      <textarea id="memo" placeholder="上の選択肢にないことを短く書いてください。例：腰痛の訴えあり、湿布を貼付している"></textarea>
+    </div>
+    <div class="item">
+      <h2>
+        <button class="fold" id="styleToggle" type="button" aria-expanded="false" aria-controls="styleBody">
+          <span class="fold-mark" aria-hidden="true">▸</span>
+          <span>文章のテイスト（AI使用時のみ）</span>
+          <span class="fold-sum" id="styleSum"></span>
+        </button>
+      </h2>
+      <div class="fold-body" id="styleBody" hidden>
+        <h3>書き方の癖（複数選べます）</h3>
+        <div class="chips" role="group" aria-label="書き方の癖" id="habitChips"></div>
+        <h3>文末</h3>
+        <div class="chips" role="group" aria-label="文末" id="endChips"></div>
+        <h3><label for="style">その他の指示（任意）</label></h3>
+        <textarea id="style" maxlength="200" style="min-height:4.5em" placeholder="例：「〜と思われる」は使わない。服薬のことを最初に書く"></textarea>
+        <p class="note">メモにない事実は追加されません。選んだ内容はこの端末に保存され、「全部クリア」では消えません。</p>
+      </div>
+    </div>
+    <div class="genrow">
+      <button class="btn primary" id="gen" type="button">文章を作る</button>
+      <button class="btn danger" id="stop" type="button" hidden>止める</button>
+      <button class="btn" id="plain" type="button">AIを使わず並べるだけ</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+    <p class="note" id="lastRun" aria-live="polite"></p>
+    <p class="note" id="ver">版 2026-11-02i</p>
+    <p class="note">入力例が入っています。「全部クリア」で空にできます。</p>
+  </section>
+
+  <div id="outputs" class="wrap" style="gap:22px"></div>
+  <div class="confirm" id="confirmBox" hidden><h3>確認してほしい点（コピーには含まれません）</h3><pre id="confirmText"></pre></div>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <label class="opt" for="withHeads"><input type="checkbox" id="withHeads" checked>項目名を含めてコピーする</label>
+    <label class="opt" for="withDate"><input type="checkbox" id="withDate">先頭に訪問日時を入れる</label>
+    <label class="opt" for="autoClear"><input type="checkbox" id="autoClear" checked>コピーしたら入力と記録を自動で消す（端末に残さない）</label>
+    <p class="note">記録文は下書きです。内容は必ずご自身で確認し、必要なら直接書き換えてください。</p>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:8px" aria-label="AI設定">
+    <h3>AI設定</h3>
+    <p class="note">Groq の GPT-OSS 120B を使います。</p>
+    <label class="note">推論量（多いほど指示に忠実で、少し遅くなります）</label>
+    <div class="chips" role="group" aria-label="推論量" id="reasonChips"></div>
+    <input type="password" id="gkey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="GroqのAPIキーを貼り付け" aria-label="GroqのAPIキー">
+    <div class="genrow">
+      <button class="btn" id="gkeySave" type="button">キーを保存</button>
+      <button class="btn danger" id="gkeyDel" type="button">キーを削除</button>
+      <span class="status" id="gkeyStatus" role="status"></span>
+    </div>
+  </section>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <button class="btn primary" id="copyAll" type="button">記録をまとめてコピー</button>
+  <button class="btn danger" id="clearAll" type="button">全部クリア</button>
+</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  var SEC = [
+    { key: "life",   title: "食生活、清潔、排泄、睡眠、生活リズム、部屋の整頓など" },
+    { key: "mental", title: "精神状態、服薬などの状況" },
+    { key: "social", title: "作業、対人関係について" },
+    { key: "care",   title: "実施した看護内容" }
+  ];
+  // opts は「ボタン表示|記録に使う文」。mode: one=ひとつ選ぶ / multi=複数選べる
+  var ITEMS = [
+    { id: "meal", sec: "life", label: "食事", mode: "multi", ph: "例：朝お粥と納豆、昼夜ムース食、息子介助",
+      opts: ["全量摂取|食事は全量摂取", "7〜8割|食事は7〜8割摂取", "半量程度|食事は半量程度の摂取", "少量のみ|食事は少量のみ摂取", "摂取なし|食事摂取なし", "食事問題なし|食事問題なし", "エンシュア服用|エンシュア服用", "イノラス服用|イノラス服用"] },
+    { id: "water", sec: "life", label: "水分", mode: "one",
+      opts: ["良好|水分摂取は良好", "やや少ない|水分摂取がやや少ない", "むせあり|飲水時にむせあり"] },
+    { id: "hygiene", sec: "life", label: "清潔", mode: "multi",
+      opts: ["入浴|入浴実施", "シャワーのみ|シャワー浴のみ実施", "清拭|清拭実施", "洗髪|洗髪実施", "更衣|更衣実施", "清潔保持|清潔は保たれている", "ケアできていない|清潔ケアができていない", "入浴長期間できていない|入浴が長期間できていない"] },
+    { id: "excretion", sec: "life", label: "排泄", mode: "multi",
+      opts: ["定期的に排便|排便は定期的にあり", "下剤使用|下剤使用", "下剤なし|下剤使用なし", "排尿著変なし|排尿に著変なし", "失禁あり|失禁あり", "リハビリパンツ使用|リハビリパンツ使用", "オムツ使用|オムツ使用", "ポータブルトイレ使用|ポータブルトイレ使用"] },
+    { id: "lastbm", sec: "life", label: "最終排便", mode: "one",
+      opts: ["本日|最終排便は本日あり", "昨日|最終排便は昨日あり", "2日前|最終排便は2日前", "3日以上なし|最終排便から3日以上経過"] },
+    { id: "sleep", sec: "life", label: "睡眠・生活リズム", mode: "one",
+      opts: ["著変なし|睡眠、生活リズムに著変なし", "眠剤内服・眠れている|眠剤内服し夜間眠れている", "不眠あり|夜間の不眠あり", "日中傾眠|日中の傾眠あり", "昼夜逆転傾向|昼夜逆転傾向あり"] },
+    { id: "room", sec: "life", label: "部屋の整頓", mode: "one",
+      opts: ["整頓されている|室内は整頓されている", "やや乱雑|室内がやや乱雑", "転倒リスクあり|室内に物が多く転倒リスクあり"] },
+
+    { id: "mental", sec: "mental", label: "精神状態", mode: "multi",
+      opts: ["変わりなし|精神状態は変わりなし", "穏やか|表情穏やか", "不安の訴えあり|不安の訴えあり", "落ち着かない|落ち着かない様子", "意欲低下|意欲低下がみられる", "幻覚あり|幻覚あり", "幻聴あり|幻聴あり", "易怒性あり|易怒性あり", "妄想発言あり|妄想的な発言あり"] },
+    { id: "meds", sec: "mental", label: "服薬", mode: "multi",
+      opts: ["指示通り内服|服薬は指示通り内服できている", "飲み忘れあり|飲み忘れあり", "残薬あり|残薬あり", "服薬拒否あり|服薬拒否あり", "家族が管理|薬は家族が管理している", "施設管理|薬は施設管理", "自己管理で内服|自己管理にて内服できている", "内服薬の処方なし|内服薬の処方なし", "薬カレンダー使用|薬カレンダー使用"] },
+    { id: "greet", sec: "mental", label: "訪問時の様子", mode: "one", opts: ["本人が出迎え|インターフォンを押すと本人出迎えあり。許可を得て入室", "家族が出迎え|家族が出迎えあり"], ph: "例：インターフォンにて息子が出迎えあり" },
+
+    { id: "family", sec: "social", label: "住まい・対人関係", mode: "multi", ph: "例：息子2人と同居",
+      opts: ["家族関係良好|家族関係良好", "同居家族あり|同居家族あり", "近隣交流あり|近隣との交流あり", "グループホーム入居|グループホーム入居中", "同居者と良好|同居者との関係良好", "世話人と良好|世話人との関係良好", "施設でトラブルなし|施設でのトラブルなし", "対人トラブルなし|対人関係トラブルなし", "独居|独居", "引きこもりがち|引きこもりがちで、関わる人は少ない"] },
+    { id: "service", sec: "social", label: "サービス利用", mode: "multi",
+      opts: ["デイサービス|デイサービス利用", "ヘルパー|ヘルパー利用", "訪問リハ|訪問リハビリ利用", "配食サービス|配食サービス利用", "作業所|作業所利用", "通所|通所利用", "サービス利用なし|サービス利用なし"] },
+    { id: "refusal", sec: "social", label: "訪問への対応", mode: "one",
+      opts: ["拒否なし|訪問への拒否なし", "拒否あり|訪問への拒否あり"] },
+
+    { id: "care", sec: "care", label: "実施内容", mode: "multi",
+      opts: ["状態確認", "服薬確認", "バイタルサイン測定", "リハビリテーション", "清潔ケア", "排泄ケア", "食事介助", "家族への助言・相談対応", "医師への報告", "生活状況の確認", "生活指導", "思いの傾聴"] }
+  ];
+  var SAMPLE_SEL = { meal: ["全量摂取"], excretion: ["下剤使用"], lastbm: ["昨日"], sleep: ["著変なし"], mental: ["変わりなし"],
+    family: ["家族関係良好"], service: ["デイサービス"], refusal: ["拒否なし"], care: ["状態確認", "服薬確認", "リハビリテーション"] };
+  var SAMPLE_TXT = { meal: "朝はお粥と納豆、昼は配食サービスのムース食、夜は冷凍のムース食。息子介助。次男が調理師のためペースト食を作成している",
+    greet: "インターフォンにて息子が出迎えあり", family: "息子2人と同居" };
+
+  var LS = "nursing-record-v2";
+  var state = { sel: {}, txt: {}, memo: "", out: {}, date: "", time: "", withHeads: true, withDate: false, autoClear: true, fresh: true };
+  var sample = null, ctl = null, busy = false;
+  // 入力を変えたのに記録文を作り直していない状態
+  var dirty = false;
+  function markDirty() { dirty = true; }
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function nowTime() { var d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function lab(o) { return o.split("|")[0]; }
+  function phr(o) { var p = o.split("|"); return p[1] || p[0]; }
+  function endDot(s) { s = s.trim(); return /[。．.！!？?」）)]$/.test(s) ? s : s + "。"; }
+  function phraseFor(item, label) {
+    for (var i = 0; i < item.opts.length; i++) if (lab(item.opts[i]) === label) return phr(item.opts[i]);
+    return label;
+  }
+
+  // 組み合わせて選んだときに1文へつなぐもの
+  var COMBOS = [
+    { id: "meds", labels: ["薬カレンダー使用", "指示通り内服"], phrase: "薬カレンダー使用し指示通り内服できている" },
+    { id: "hygiene", labels: ["入浴", "清潔保持"], phrase: "定期的に入浴され清潔保持できている" }
+  ];
+  function selectedPhrases(item) {
+    var sel = (state.sel[item.id] || []).slice(), out = [];
+    COMBOS.forEach(function (c) {
+      if (c.id !== item.id) return;
+      var all = c.labels.every(function (l) { return sel.indexOf(l) >= 0; });
+      if (all) { sel = sel.filter(function (l) { return c.labels.indexOf(l) < 0; }); out.push(c.phrase); }
+    });
+    return out.concat(sel.map(function (l) { return item.id === "care" ? l : phraseFor(item, l); }));
+  }
+
+  function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LS) || "null"); } catch (e) {}
+    if (saved) { Object.assign(state, saved); state.fresh = false; }
+    else { state.sel = JSON.parse(JSON.stringify(SAMPLE_SEL)); state.txt = JSON.parse(JSON.stringify(SAMPLE_TXT)); state.fresh = true; }
+  }
+  function save() {
+    try { localStorage.setItem(LS, JSON.stringify({ sel: state.sel, txt: state.txt, memo: state.memo, out: state.out, date: state.date, time: state.time, withHeads: state.withHeads, withDate: state.withDate, autoClear: state.autoClear })); } catch (e) {}
+  }
+
+  /* ---------- 入力欄 ---------- */
+  function buildInputs() {
+    var root = $("inputs"); root.innerHTML = "";
+    SEC.forEach(function (sec) {
+      var box = el("section", "sec");
+      var h = el("h2", null, sec.title); box.appendChild(h);
+      ITEMS.filter(function (it) { return it.sec === sec.key; }).forEach(function (item) {
+        var wrap = el("div", "item");
+        wrap.appendChild(el("h3", null, item.label));
+        if (item.opts.length) {
+          var chips = el("div", "chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", item.label);
+          item.opts.forEach(function (o) {
+            var l = lab(o);
+            var b = el("button", "chip", l); b.type = "button";
+            b.setAttribute("aria-pressed", (state.sel[item.id] || []).indexOf(l) >= 0 ? "true" : "false");
+            b.addEventListener("click", function () {
+              var cur = state.sel[item.id] || [], i = cur.indexOf(l);
+              if (item.mode === "one") cur = i >= 0 ? [] : [l];
+              else { if (i >= 0) cur.splice(i, 1); else cur.push(l); }
+              state.sel[item.id] = cur; markDirty(); save();
+              Array.prototype.forEach.call(chips.children, function (c) {
+                c.setAttribute("aria-pressed", cur.indexOf(c.textContent) >= 0 ? "true" : "false");
+              });
+            });
+            chips.appendChild(b);
+          });
+          wrap.appendChild(chips);
+        }
+        if (item.ph) {
+          var inp = el("input"); inp.type = "text"; inp.id = "txt-" + item.id; inp.placeholder = item.ph;
+          inp.setAttribute("aria-label", item.label + "（一言）");
+          inp.value = state.txt[item.id] || "";
+          inp.addEventListener("input", function () { state.txt[item.id] = inp.value; markDirty(); save(); });
+          wrap.appendChild(inp);
+        }
+        box.appendChild(wrap);
+      });
+      root.appendChild(box);
+    });
+    $("memo").value = state.memo || "";
+  }
+
+  /* ---------- 出力欄 ---------- */
+  function buildOutputs() {
+    var root = $("outputs"); root.innerHTML = "";
+    var head = el("h2", null, "記録"); root.appendChild(head);
+    SEC.forEach(function (sec) {
+      var w = el("div", "out");
+      var l = el("h3", null, sec.title); var lid = "oh-" + sec.key; l.id = lid;
+      var ta = el("textarea"); ta.id = "out-" + sec.key; ta.setAttribute("aria-labelledby", lid);
+      ta.value = state.out[sec.key] || "";
+      ta.placeholder = "「文章を作る」を押すとここに入ります。直接書き換えもできます。";
+      ta.addEventListener("input", function () { state.out[sec.key] = ta.value; save(); });
+      var cb = el("button", "btn copy-one", "コピー"); cb.type = "button";
+      cb.setAttribute("aria-label", sec.title + "をコピー");
+      cb.addEventListener("click", function () { copyOne(ta, cb); });
+      var hd = el("div", "out-head"); hd.appendChild(l); hd.appendChild(cb);
+      var box = el("div", "out-box"); box.appendChild(hd); box.appendChild(ta);
+      w.appendChild(box); root.appendChild(w);
+    });
+    showConfirm(state.out.notes || "");
+  }
+  function showConfirm(t) {
+    t = (t || "").trim(); state.out.notes = t;
+    $("confirmBox").hidden = !t; $("confirmText").textContent = t;
+  }
+  function applyOut(o) {
+    SEC.forEach(function (sec) {
+      if (Object.prototype.hasOwnProperty.call(o, sec.key)) { $("out-" + sec.key).value = o[sec.key]; state.out[sec.key] = o[sec.key]; }
+    });
+    if (Object.prototype.hasOwnProperty.call(o, "notes")) showConfirm(o.notes);
+    dirty = false;
+    save();
+  }
+
+  /* ---------- 入力のまとめ ---------- */
+  function memoLines() {
+    var lines = [];
+    ITEMS.forEach(function (item) {
+      var parts = selectedPhrases(item);
+      var t = (state.txt[item.id] || "").trim();
+      if (parts.length && t) lines.push("- " + item.label + "：" + parts.join(" ／ ") + "（具体的には：" + t + "）");
+      else if (parts.length) lines.push("- " + item.label + "：" + parts.join(" ／ "));
+      else if (t) lines.push("- " + item.label + "：" + t);
+    });
+    var m = (state.memo || "").trim(); if (m) lines.unshift("- 看護師のメモ（必ず反映する）：" + m);
+    return lines;
+  }
+
+  var RULES = [
+    "あなたは訪問看護ステーションの看護師が書く「訪問看護記録」の下書きを作るアシスタントです。",
+    "下の「今回のメモ」から、次の4項目に分けた記録文を作成してください。",
+    "メモには2種類の行がある。「看護師のメモ（必ず反映する）」は看護師が自分の言葉で書いた最も重要な情報で、その内容と表現は必ず記録文に入れる。それ以外の行は選択肢から選んだ定型の項目で、メモの内容を補うもの。",
+    "行の末尾に「（具体的には：…）」があるときは、その行の選択肢と同じ出来事を看護師が具体的に書き直したもの。選択肢の定型文は使わず、「具体的には」の内容だけで書く（例：「家族が出迎えあり（具体的には：インターフォンにて息子が出迎えあり）」→「インターフォンにて息子が出迎えあり。」）。",
+    "",
+    "【出力する項目】",
+    "【食生活、清潔、排泄、睡眠、生活リズム、部屋の整頓など】",
+    "【精神状態、服薬などの状況】",
+    "【作業、対人関係について】",
+    "【実施した看護内容】",
+    "",
+    "【文体のルール】",
+    "- 看護記録の文体にする。「です・ます」は使わず、「〜あり。」「〜なし。」「〜良好。」「〜確認。」のように体言止めで簡潔に書く。",
+    "- 名詞・形容動詞で終わる文に「である」「だ」「となっている」は付けない。例：「水分摂取は良好。」（「良好である。」は不可）、「室内はやや乱雑。」（「乱雑である。」は不可）、「清潔は保たれている。」は可。",
+    "- 読み手がすらすら読める自然で簡潔な日本語にする。メモの項目を順に言い換えて並べるのではなく、内容を整理して流れよく書き直してよい。",
+    "- 文は「事柄」ごとに区切る。食事、水分、清潔、排泄、睡眠・生活リズム、部屋の整頓、精神状態、服薬など、関係のない事柄は別の文にして「。」で区切る。同じ事柄の内容（例：食事の内容と量と介助、排泄の状況と下剤）は1文にまとめる。ただし、下の【関係のある事柄のつなぎ方】に当てはまるときは、そちらを優先して1文にする。",
+    "- 関係のない事柄を「〜し、〜している」「〜であり、〜」のように無理に1文へつなげない。細切れにもせず、同じ事柄は重複なく簡潔にまとめる。助詞や語順は自然に整える。意味は変えない。",
+    "- 同じ事実がメモの複数の行（選択肢と一言など）に重なっているときは、1回だけ書く。具体的な方を残す。例：「家族が出迎えあり」と「息子が出迎えあり」が両方あれば「息子が出迎えあり。」の1つだけにする。ただし、訴えと観察した事実は同じ事実ではないので、この扱いはしない。",
+    "- 「家族」「本人」「スタッフ」のような一般的な語と、「息子」「妻」「ヘルパー」のような具体的な続柄・役割が同じ出来事に出てくるときは、同じ人物を指しているとみなし、具体的な方だけで書く。「息子が出迎え、家族も出迎えあり」のように、同じ出来事を別の人の行動として二重に書かない。",
+    "- 「看護師のメモの内容を省略しない」とは、選択肢の定型文をメモの具体的な表現に置き換えることであり、定型文とメモの両方を並べることではない。",
+    "- 「看護師のメモ」と選択肢が同じ事柄について書かれているときは、選択肢の短い言葉で済ませず、メモにある程度・時間帯・対応などの具体的な内容も残して書く。例：選択肢「腰痛あり」とメモ「湿布を貼付し様子をみている」→「腰痛あり。湿布を貼付し経過観察。」",
+    "- 「訴え」と「事実」は別の事実として扱い、両方書く。本人や家族が言ったこと（「〜との訴えあり」「〜とのこと」「〜と話す」）と、看護師が観察・確認した事実（「不眠あり」「浮腫なし」など）は、同じ事柄でも1つにまとめない。訴えを事実に書き換えたり、事実を訴えに書き換えたりしない。例：選択肢「不眠あり」とメモ「眠れないとの訴えあり」→「不眠あり。眠れないとの訴えあり。」のように両方残す（どちらか一方にしない）。",
+    "- 「看護師のメモ」の内容は、選択肢と重なっていても矛盾していても、省略しない。選択肢と矛盾する場合はメモの内容を本文に書き、矛盾していることを【確認してほしい点】に書く。",
+    "- 箇条書きの記号や項目内の改行は使わない。1項目は1つの段落として書く。",
+    "- 「著変なし」「変わりなし」「良好」「拒否なし」など、看護記録で一般的な表現を使う。",
+    "- メモに書かれていない事実は絶対に追加しない。推測で補わない。",
+    "- メモに情報がない項目は、勝手に「問題なし」と書かず、その見出しの下に「（記載なし）」と書く。",
+    "- 氏名など個人を特定できる情報は書かない。「息子」「次男」など続柄はそのまま使ってよい。",
+    "- 医療的な判断や診断名を新しく作らない。",
+    "- 「実施した看護内容」は、メモにある実施内容を漏らさず1〜2文にまとめる（実施内容は並列の項目なので、この項目だけは1〜2文）。例：「状態確認と服薬確認、リハビリテーションを実施。」",
+    "",
+    "【関係のある事柄のつなぎ方】（文を区切るルールより優先する）",
+    "- 一方が他方の前提・対比・結果になっている2つの事柄は、別々の文にせず「〜が、〜」「〜も、〜」「〜のため、〜」で1文にする。特に次の組み合わせは必ずつなぐ。",
+    "  1. 服薬の状況と、睡眠・症状・訴え（例：服薬できているのに眠れない、内服後に症状が落ち着いた）",
+    "  2. 実施した対応と、その結果や本人の反応",
+    "  3. 看護師が観察した事実と、それに関する本人の訴え",
+    "- つないでも、訴えと事実はそれぞれ残す。順番は、事実→訴え、対応→結果のように、読んで自然な方にする。",
+    "- 悪い例：「表情穏やか。服薬は指示通り内服できている。眠れないとの訴えあり。」（服薬と訴えが切れている）",
+    "- 良い例：「表情穏やか。服薬は指示通り内服できているが、眠れないとの訴えあり。」",
+    "- 良い例：「眠れないとの訴えあるが、服薬は指示通り内服できている。」",
+    "- 良い例：「腰痛の訴えあり、湿布を貼付したところ『楽になった』とのこと。」ではなく「腰痛の訴えあり。湿布を貼付し、楽になったとのこと。」（対応と結果をつなぐ。カギ括弧は使わない）",
+    "",
+    "【出力形式】",
+    "- 上記4つの見出しを【 】付きで、この順に出力し、その下に本文を書く。",
+    "- 前置きや解説は書かず、記録文だけを出力する。",
+    "- 最後に【確認してほしい点】という見出しで、メモが曖昧で判断できなかった箇所を最大3つまで書く。なければこの見出しごと省略する。",
+    "",
+    "【今回のメモ】"
+  ].join("\n");
+
+  /* ---------- 生成 ---------- */
+  function parseOut(t) {
+    var o = {}, cur = null;
+    t.split("\n").forEach(function (line) {
+      var m = line.match(/^\s*【(.+?)】\s*(.*)$/);
+      if (m) {
+        var h = m[1];
+        cur = h.indexOf("食生活") === 0 ? "life" : h.indexOf("精神状態") === 0 ? "mental" : h.indexOf("作業") === 0 ? "social" : h.indexOf("実施") === 0 ? "care" : h.indexOf("確認") === 0 ? "notes" : null;
+        if (cur) o[cur] = m[2] || "";
+        return;
+      }
+      if (cur) o[cur] = (o[cur] ? o[cur] + "\n" : "") + line;
+    });
+    Object.keys(o).forEach(function (k) { o[k] = o[k].replace(/^\s+|\s+$/g, ""); });
+    return o;
+  }
+  function localCompose() {
+    var o = { life: [], mental: [], social: [], care: [] };
+    ITEMS.forEach(function (item) {
+      var t = (state.txt[item.id] || "").trim();
+      if (t) o[item.sec].push(endDot(t));
+      selectedPhrases(item).forEach(function (p) {
+        o[item.sec].push(item.sec === "care" ? p : endDot(p));
+      });
+    });
+    var res = {};
+    SEC.forEach(function (s) { res[s.key] = o[s.key].length ? o[s.key].join("\n") : "（記載なし）"; });
+    var m = (state.memo || "").trim();
+    res.notes = m ? "その他メモは自動では振り分けできません。必要な項目に書き足してください：" + m : "";
+    return res;
+  }
+  function hasInput() { return memoLines().length > 0; }
+  function setBusy(b) {
+    busy = b; $("gen").disabled = b; $("plain").disabled = b; $("stop").hidden = !b;
+    SEC.forEach(function (s) { $("out-" + s.key).readOnly = b; });
+    clearInterval(busyTimer);
+    if (b) {
+      var t0 = Date.now(); $("status").textContent = "考え中…";
+      busyTimer = setInterval(function () { $("status").textContent = "考え中… " + Math.floor((Date.now() - t0) / 1000) + "秒"; }, 1000);
+    } else { $("status").textContent = ""; }
+  }
+  var busyTimer;
+  /* ---------- Groq / Claude API（キーは端末にのみ保存） ---------- */
+  var AMKEY = "nursing-ai-model", AM_DEFAULT = "openai/gpt-oss-120b";
+  try { ["nursing-gemini-key", "nursing-gemini-model", "nursing-claude-model", "nursing-style-len", "nursing-claude-key", "nursing-ai-model"].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+  function amodel() { return AM_DEFAULT; } // モデルは固定
+  function isClaude() { return amodel().indexOf("claude-") === 0; }
+  function aname() { return isClaude() ? "Claude" : "Groq"; }
+  function keyName() { return isClaude() ? "nursing-claude-key" : "nursing-groq-key"; }
+  function akey() { try { return (localStorage.getItem(keyName()) || "").trim(); } catch (e) { return ""; } }
+  var ATIMEOUT = 30000; // 文字が届かない時間の上限（ミリ秒）
+  var ALOG = []; // 直近1回の試行ごとの結果（画面に残して原因の切り分けに使う）
+  function codeErr(code) { var e = new Error(code); e.code = code; return e; }
+  async function aiApi(prompt, signal, onText) {
+    var res, retried = false, model = amodel(), claude = isClaude();
+    var text = "", stop = "", version = "";
+    ALOG.length = 0;
+    for (;;) {
+      // 無応答の上限と「止める」ボタンの両方で中断できるようにする。文字が届くたびに測り直す
+      var ac = new AbortController(), timedOut = false, tm = null, why = "", whyType = "", first = 0;
+      var arm = function () { clearTimeout(tm); tm = setTimeout(function () { timedOut = true; ac.abort(); }, ATIMEOUT); };
+      var tA = Date.now();
+      var onAbort = function () { ac.abort(); };
+      signal.addEventListener("abort", onAbort);
+      arm();
+      res = null;
+      var url, headers, body;
+      if (claude) {
+        url = "https://api.anthropic.com/v1/messages";
+        headers = {
+          "Content-Type": "application/json", "x-api-key": akey(), "anthropic-version": "2026-10-21",
+          "anthropic-dangerous-direct-browser-access": "true"
+        };
+        body = { model: model, max_tokens: 4000, stream: true, output_config: { effort: "low" }, messages: [{ role: "user", content: prompt }] };
+        if (model !== "claude-haiku-5-5") { headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; body.fallbacks = "default"; }
+      } else {
+        url = "https://api.groq.com/openai/v1/chat/completions";
+        headers = { "Content-Type": "application/json", "Authorization": "Bearer " + akey() };
+        body = { model: model, max_completion_tokens: 4000, temperature: 0.2, stream: true, messages: [{ role: "user", content: prompt }] };
+        // GPT-OSS は推論を出力から外し、推論量も最小にする
+        if (model.indexOf("openai/gpt-oss") === 0) { body.include_reasoning = false; body.reasoning_effort = state.reason === "low" ? "low" : "medium"; }
+      }
+      try {
+        res = await fetch(url, { method: "POST", signal: ac.signal, headers: headers, body: JSON.stringify(body) });
+        if (res.ok) {
+          var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+          for (;;) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+            arm();
+            buf += dec.decode(chunk.value, { stream: true });
+            var lines = buf.split("\n"); buf = lines.pop();
+            lines.forEach(function (line) {
+              if (line.indexOf("data:") !== 0) return;
+              var d; try { d = JSON.parse(line.slice(5)); } catch (e) { return; }
+              if (!claude) {
+                var c = d.choices && d.choices[0];
+                if (d.model) version = d.model;
+                if (d.error) { why = d.error.message || ""; whyType = d.error.type || "error"; }
+                if (!c) return;
+                if (c.finish_reason) stop = c.finish_reason;
+                var piece = c.delta && c.delta.content;
+                if (piece) {
+                  if (!first) first = Date.now() - tA;
+                  text += piece;
+                  if (onText) onText(text);
+                }
+                return;
+              }
+              if (d.type === "message_start" && d.message) version = d.message.model || "";
+              if (d.type === "message_delta" && d.delta && d.delta.stop_reason) stop = d.delta.stop_reason;
+              if (d.type === "error") { why = (d.error && d.error.message) || ""; whyType = (d.error && d.error.type) || "error"; }
+              if (d.type === "content_block_delta" && d.delta && d.delta.type === "text_delta") {
+                if (!first) first = Date.now() - tA;
+                text += d.delta.text;
+                if (onText) onText(text);
+              }
+            });
+          }
+        } else {
+          try { var eb = (await res.json()).error || {}; why = eb.message || ""; whyType = eb.type || ""; } catch (e) {}
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") {
+          ALOG.push((timedOut ? "打ち切り" : "中止") + " " + ((Date.now() - tA) / 1000).toFixed(1) + "秒");
+          var te = codeErr(timedOut ? "timeout" : "cancelled"); te.detail = model; throw te;
+        }
+        ALOG.push("通信失敗 " + ((Date.now() - tA) / 1000).toFixed(1) + "秒");
+        throw codeErr("network");
+      } finally { clearTimeout(tm); signal.removeEventListener("abort", onAbort); }
+      ALOG.push("HTTP " + res.status + (first ? " 書き始め" + (first / 1000).toFixed(1) + "秒 完了" : " ") + ((Date.now() - tA) / 1000).toFixed(1) + "秒" + (why ? "（" + why.slice(0, 90) + "）" : ""));
+      if (!retried && (res.status >= 500 || whyType === "overloaded_error") && !text) { retried = true; await new Promise(function (r) { setTimeout(r, 1200); }); continue; } // 混雑時は1回だけやり直す
+      break;
+    }
+    if (!res.ok || whyType) {
+      var er = new Error("api " + res.status);
+      er.code = res.status === 429 ? "rate_limited" : res.status === 404 ? "model_missing" : (res.status === 401 || res.status === 403) ? "bad_key" : /credit/i.test(why) ? "no_credit" : "api_error";
+      er.detail = "HTTP " + res.status + " " + model;
+      throw er;
+    }
+    if (stop === "refusal") throw codeErr("refused");
+    if (!text) throw codeErr("empty_completion");
+    return { text: text, truncated: stop === "max_tokens" || stop === "length", model: version };
+  }
+  var ERR = {
+    bad_key: "APIキーが正しくないか、使えない状態です。下の「AI設定」で入れ直してください。",
+    no_credit: "APIのクレジット残高が足りません。Claude Consoleでチャージしてください。",
+    model_missing: "このモデルはお使いのキーでは使えません。Groq のキーと利用状況を確認してください。",
+    network: "通信できませんでした。電波を確認してもう一度お試しください。",
+    timeout: "AIの応答が30秒以内に返ってきませんでした。もう一度押してください。何度も続くときは「AIを使わず並べるだけ」を使ってください。",
+    api_error: "AIが応答できませんでした。しばらくしてからもう一度お試しください。",
+    not_granted: "Claudeの利用が許可されていません。下の「AIを使わず並べるだけ」を使ってください。",
+    sampling_disabled: "このアカウントではClaudeを使えません。「AIを使わず並べるだけ」を使ってください。",
+    rate_limited: "短時間に使いすぎました。しばらくしてからもう一度押してください。",
+    session_expired: "ログインし直してからもう一度お試しください。",
+    refused: "この内容では作成できませんでした。メモの書き方を変えてみてください。",
+    empty_completion: "文章が返ってきませんでした。メモを増やしてもう一度お試しください。"
+  };
+  async function generate() {
+    if (busy) return;
+    if (!hasInput()) { toast("項目を選ぶか、メモを書いてください"); return; }
+    if (!sample && !akey()) { applyOut(localCompose()); toast("AIが使えないため、選んだ内容を並べました"); return; }
+    var all = memoLines().join("\n") + "\n" + (state.style || "");
+    if (/\d{2,4}[-ー−‐]\d{2,4}[-ー−‐]\d{3,4}|〒|\d{7,}|@[A-Za-z0-9]|[都道府県].{1,6}[市区町村郡].{0,10}\d+[-ー−‐]\d+/.test(all)) {
+      toast("電話番号・住所・メールらしき記載があります。消してからもう一度押してください"); return;
+    }
+    ctl = new AbortController(); setBusy(true);
+    var tStart0 = Date.now();
+    try {
+      var rules = RULES, order = styleRules();
+      if (order.length) rules = rules.replace("【今回のメモ】", function () {
+        return "【優先する文体指示】\n次の指示は、上の「文体のルール」と食い違う場合でもこちらを優先する。ただし、メモにない事実を追加しないこと、個人を特定できる情報を書かないこと、出力形式は必ず守る。\n- " + order.join("\n- ") + "\n\n【今回のメモ】";
+      });
+      var prompt = rules + "\n" + memoLines().join("\n");
+      var tStart = Date.now();
+      var r = sample ? await sample(prompt, {
+        signal: ctl.signal, cache: false, modelTier: "default",
+        onText: function (u) { $("status").textContent = "作成中…"; applyOut(parseOut(u.text)); }
+      }) : await aiApi(prompt, ctl.signal, function (x) { applyOut(parseOut(x)); });
+      var o = parseOut(r.text);
+      if (!Object.prototype.hasOwnProperty.call(o, "notes")) o.notes = "";
+      applyOut(o);
+      if (r.truncated) toast("途中で切れています。メモを減らしてもう一度お試しください");
+      else toast("作成しました（" + ((Date.now() - tStart) / 1000).toFixed(1) + "秒" + (r.tries ? "・設定" + r.tries : "") + (r.model ? "・" + r.model : "") + "）。内容を確認してください");
+    } catch (e) {
+      if (e && e.text) applyOut(parseOut(e.text));
+      if (!e || e.code !== "cancelled") toast((ERR[e && e.code] || "うまく作成できませんでした。もう一度お試しください") + (e && e.detail ? "（" + e.detail + "）" : ""));
+    } finally {
+      setBusy(false);
+      if (!sample && ALOG.length) $("lastRun").textContent = "直近の通信（" + amodel() + "）→ " + ALOG.join(" ／ ") + "　合計 " + ((Date.now() - tStart0) / 1000).toFixed(1) + "秒";
+    }
+  }
+
+  /* ---------- コピー ---------- */
+  function compose() {
+    var parts = [];
+    if (state.withDate && state.date) {
+      var p = state.date.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]);
+      parts.push("訪問日時：" + p[0] + "年" + (+p[1]) + "月" + (+p[2]) + "日(" + "日月火水木金土".charAt(d.getDay()) + ")" + (state.time ? " " + state.time : ""));
+    }
+    SEC.forEach(function (sec) {
+      var t = ($("out-" + sec.key).value || "").trim(); if (!t) return;
+      parts.push(state.withHeads ? "【" + sec.title + "】\n" + t : t);
+    });
+    return parts.join("\n\n");
+  }
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2400);
+  }
+  /* カテゴリごとのコピー（本文のみ。入力や記録は消さない） */
+  function copyOne(ta, btn) {
+    var t = (ta.value || "").trim();
+    if (!t) { toast("コピーする記録がありません"); return; }
+    var ok = function () {
+      btn.textContent = "コピーしました"; btn.classList.add("done");
+      setTimeout(function () { btn.textContent = "コピー"; btn.classList.remove("done"); }, 1600);
+    };
+    var fb = function () {
+      try { ta.focus(); ta.select(); if (document.execCommand("copy")) { ok(); return; } } catch (e) {}
+      toast("コピーできませんでした。記録欄を長押しして手動でコピーしてください");
+    };
+    try { navigator.clipboard.writeText(t).then(ok, fb); } catch (e) { fb(); }
+  }
+
+  var copyBtn = $("copyAll"), copyTimer;
+  function copyWarning(out) {
+    if (dirty && hasInput()) return "入力を変えたあと記録文を作り直していません。";
+    var m = (state.memo || "").trim();
+    if (m && out.indexOf(m) < 0) return "その他メモが記録文に入っていない可能性があります。";
+    return "";
+  }
+  function disarmCopy() { clearTimeout(copyTimer); copyBtn.dataset.armed = ""; copyBtn.textContent = "記録をまとめてコピー"; }
+  copyBtn.addEventListener("click", function () {
+    var out = compose();
+    if (!out) { toast("コピーする記録がありません"); return; }
+    var warn = copyWarning(out);
+    if (warn && copyBtn.dataset.armed !== "1") {
+      copyBtn.dataset.armed = "1"; copyBtn.textContent = "このままコピーする";
+      toast(warn + "よければもう一度押してください");
+      copyTimer = setTimeout(disarmCopy, 5000);
+      return;
+    }
+    disarmCopy();
+    var fallback = function () { toast("コピーできませんでした。記録欄を長押しして手動でコピーしてください"); };
+    var done = function () {
+      if (state.autoClear !== false) {
+        state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
+        state.date = today(); state.time = nowTime(); $("date").value = state.date; $("time").value = state.time;
+        dirty = false;
+        save(); buildInputs(); buildOutputs(); toast("コピーしました。入力と記録は消しました");
+      } else { toast("コピーしました"); }
+    };
+    try { navigator.clipboard.writeText(out).then(done, fallback); } catch (e) { fallback(); }
+  });
+
+  var clearBtn = $("clearAll"), clearTimer;
+  clearBtn.addEventListener("click", function () {
+    if (clearBtn.dataset.armed !== "1") {
+      clearBtn.dataset.armed = "1"; clearBtn.textContent = "もう一度押すと空にします";
+      clearTimer = setTimeout(function () { clearBtn.dataset.armed = ""; clearBtn.textContent = "全部クリア"; }, 3000);
+      return;
+    }
+    clearTimeout(clearTimer); clearBtn.dataset.armed = ""; clearBtn.textContent = "全部クリア";
+    state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
+    save(); buildInputs(); buildOutputs(); toast("すべて空にしました");
+  });
+
+  /* ---------- 起動 ---------- */
+  load();
+  // 保存された日付が今日でなければ、日付も時刻も今に更新する
+  if (!state.date || state.date !== today()) { state.date = today(); state.time = nowTime(); }
+  if (!state.time) state.time = nowTime();
+  $("date").value = state.date; $("time").value = state.time;
+  $("withHeads").checked = !!state.withHeads; $("withDate").checked = !!state.withDate;
+  $("date").addEventListener("input", function () { state.date = $("date").value; save(); });
+  $("time").addEventListener("input", function () { state.time = $("time").value; save(); });
+  $("withHeads").addEventListener("change", function () { state.withHeads = $("withHeads").checked; save(); });
+  $("withDate").addEventListener("change", function () { state.withDate = $("withDate").checked; save(); });
+  $("autoClear").checked = state.autoClear !== false;
+  $("autoClear").addEventListener("change", function () { state.autoClear = $("autoClear").checked; save(); });
+  $("memo").addEventListener("input", function () { state.memo = $("memo").value; markDirty(); save(); });
+  $("gen").addEventListener("click", generate);
+  $("plain").addEventListener("click", function () {
+    if (!hasInput()) { toast("項目を選ぶか、メモを書いてください"); return; }
+    applyOut(localCompose()); toast("選んだ内容を並べました");
+  });
+  $("stop").addEventListener("click", function () { if (ctl) ctl.abort(); });
+
+  buildInputs();
+  // 初回は入力例だけを表示し、記録欄は空にする（入力例が記録としてコピーされるのを防ぐ）
+  dirty = state.fresh;
+  buildOutputs();
+
+  /* ---------- 文章のテイスト（端末に保存。クリアでは消さない） ---------- */
+  var SKEY = "nursing-style", SHAB = "nursing-style-habits", SEND = "nursing-style-end";
+  /* 看護記録でよくある書き方の癖。複数選択。選んだものだけ依頼文に入る */
+  var HABITS = [
+    { k: "arinashi", label: "有無は「あり／なし」", rule: "有無を表すときは「出迎えあり。」「拒否なし。」「浮腫なし。」のように「〜あり」「〜なし」で書く。「〜がある」「〜が見られない」「〜はしていない」は使わない。" },
+    { k: "chohen", label: "変化なしは「著変なし」", rule: "メモに異常や変化の記載がない項目は、「食事、排泄に著変なし。」のように「著変なし」で1文にまとめる。異常や変化がある項目は個別に書く。" },
+    { k: "honnin", label: "「本人」「家族」で統一", rule: "利用者は「本人」と書く。「利用者」「患者」「〜さん」「ご本人」は使わない。同居者や介護者は、メモに続柄があれば「息子」「妻」のように続柄で書き、なければ「家族」と書く。「ご家族」は使わない。" },
+    { k: "num", label: "数値は半角＋単位", rule: "数値はすべて半角で書き、単位を付ける（例：BT36.5℃、BP128/76mmHg、SpO2 97%、水分約800ml、週2回）。全角数字や漢数字は使わない。" },
+    { k: "vital", label: "バイタルは BT→BP→P→SpO2", rule: "バイタルサインがメモにあるときは、「BT36.5℃、BP128/76mmHg、P72回/分、SpO2 97%。」のように BT、BP、P、SpO2 の順で1文にまとめる。「体温」「血圧」「脈拍」「酸素飽和度」ではなく略語で書く。メモにない項目は書かない。" },
+    { k: "tame", label: "理由と対応は「〜のため〜実施」", rule: "ケアの理由と実施内容は、「便秘傾向のため腹部マッサージ実施。」のように「〜のため〜実施」の形でつなぐ。理由がメモにないときは理由を作らず、実施内容だけを書く。" },
+    { k: "uttae", label: "発言は「〜の訴えあり」", rule: "本人や家族の発言は、「腰痛の訴えあり。」「夜間2回トイレに起きたとのこと。」のように「〜の訴えあり」「〜とのこと」で書く。カギ括弧「」で発言をそのまま引用しない。" },
+    { k: "shido", label: "助言は「〜を伝える」「〜指導」", rule: "本人や家族への説明・助言は、「水分摂取の必要性を伝える。」「転倒予防について指導。」のように「〜を伝える」「〜指導」で書く。「〜するように言った」「〜をお願いした」は使わない。" },
+    { k: "time", label: "時間帯・頻度を残す", rule: "「朝」「夕方」「夜間」「毎食後」「週2回」「1日3回」のように、メモにある時間帯・回数・頻度は省略せずそのまま残す。" }
+  ];
+  var ENDS = [
+    { k: "noun", label: "体言止め（〜あり。）", rule: "" },
+    { k: "plain", label: "文で書く（〜している。）", rule: "文末は体言止めにしない。「〜している。」「〜がみられる。」「〜を確認した。」のように、動詞で終わる文で書く。「です・ます」は使わない。" }
+  ];
+  function pickStyle(list, key) { for (var i = 0; i < list.length; i++) if (list[i].k === key) return list[i]; return null; }
+  function styleRules() {
+    var out = [], e = pickStyle(ENDS, state.end), t = (state.style || "").trim();
+    HABITS.forEach(function (h) { if ((state.habits || []).indexOf(h.k) >= 0) out.push(h.rule); });
+    if (e && e.rule) out.push(e.rule);
+    if (t) out.push(t);
+    return out;
+  }
+  function styleChips(rootId, list, stateKey, lsKey, fallback) {
+    try { state[stateKey] = localStorage.getItem(lsKey) || fallback; } catch (e) { state[stateKey] = fallback; }
+    if (!pickStyle(list, state[stateKey])) state[stateKey] = fallback;
+    var root = $(rootId);
+    list.forEach(function (o) {
+      var b = el("button", "chip", o.label); b.type = "button";
+      b.setAttribute("aria-pressed", state[stateKey] === o.k ? "true" : "false");
+      b.addEventListener("click", function () {
+        state[stateKey] = o.k;
+        try { localStorage.setItem(lsKey, o.k); } catch (e) {}
+        Array.prototype.forEach.call(root.children, function (c, i) { c.setAttribute("aria-pressed", list[i].k === o.k ? "true" : "false"); });
+      });
+      root.appendChild(b);
+    });
+  }
+  /* 癖は複数選択。localStorage には選んだキーの配列を JSON で保存 */
+  function habitChips() {
+    var saved = [];
+    try { saved = JSON.parse(localStorage.getItem(SHAB) || "[]"); } catch (e) { saved = []; }
+    if (!Array.isArray(saved)) saved = [];
+    state.habits = saved.filter(function (k) { return !!pickStyle(HABITS, k); });
+    var root = $("habitChips");
+    HABITS.forEach(function (h) {
+      var b = el("button", "chip", h.label); b.type = "button";
+      b.setAttribute("aria-pressed", state.habits.indexOf(h.k) >= 0 ? "true" : "false");
+      b.addEventListener("click", function () {
+        var i = state.habits.indexOf(h.k);
+        if (i >= 0) state.habits.splice(i, 1); else state.habits.push(h.k);
+        b.setAttribute("aria-pressed", i >= 0 ? "false" : "true");
+        try { localStorage.setItem(SHAB, JSON.stringify(state.habits)); } catch (e) {}
+      });
+      root.appendChild(b);
+    });
+  }
+  habitChips();
+  styleChips("endChips", ENDS, "end", SEND, "noun");
+  var REASONS = [
+    { k: "low", label: "少なめ（速い）", rule: "" },
+    { k: "medium", label: "標準", rule: "" }
+  ];
+  styleChips("reasonChips", REASONS, "reason", "nursing-reasoning", "medium");
+  try { state.style = localStorage.getItem(SKEY) || ""; } catch (e) { state.style = ""; }
+  $("style").value = state.style;
+  $("style").addEventListener("input", function () {
+    state.style = $("style").value;
+    try { localStorage.setItem(SKEY, state.style); } catch (e) {}
+    styleSummary();
+  });
+
+  /* 折りたたみ。既定は閉じる。開閉状態は端末に保存 */
+  var SOPEN = "nursing-style-open";
+  function styleSummary() {
+    var n = styleRules().length;
+    $("styleSum").textContent = n ? "指示 " + n + " 件" : "指定なし";
+  }
+  function setStyleOpen(open) {
+    $("styleBody").hidden = !open;
+    $("styleToggle").setAttribute("aria-expanded", open ? "true" : "false");
+    try { localStorage.setItem(SOPEN, open ? "1" : "0"); } catch (e) {}
+  }
+  $("styleToggle").addEventListener("click", function () { setStyleOpen($("styleBody").hidden); });
+  var openSaved = "0"; try { openSaved = localStorage.getItem(SOPEN) || "0"; } catch (e) {}
+  setStyleOpen(openSaved === "1");
+  $("habitChips").addEventListener("click", styleSummary);
+  $("endChips").addEventListener("click", styleSummary);
+  styleSummary();
+
+  var PRIV_CLAUDE = $("privacy").textContent;
+  function refreshMode() {
+    $("gkey").placeholder = akey() ? aname() + "のキーは保存済み（入れ直すと上書き）" : aname() + "のAPIキーを貼り付け";
+    if (sample) {
+      $("gen").textContent = "文章を作る"; $("plain").hidden = false; $("privacy").textContent = PRIV_CLAUDE;
+    } else if (akey()) {
+      $("gen").textContent = "文章を作る（" + aname() + "）"; $("plain").hidden = false;
+      $("privacy").textContent = "「文章を作る」を押すと、選んだ内容とメモが" + (isClaude() ? "AnthropicのClaude API" : "GroqのAPI") + "に送られます。利用者の氏名など個人を特定できる情報は入れないでください。入力内容はこの端末のブラウザにだけ保存されます。";
+    } else {
+      $("gen").textContent = "文章を作る"; $("plain").hidden = true;
+      $("privacy").textContent = "AIによる文章作成は使えません。選んだ内容を並べて記録文にします。下の「AI設定」にAPIキーを入れると使えます。入力内容はこの端末のブラウザにだけ保存されます。利用者の氏名など個人を特定できる情報は入れないでください。";
+    }
+  }
+  function noAI() { sample = null; refreshMode(); }
+  $("gkeySave").addEventListener("click", function () {
+    var v = $("gkey").value.trim();
+    if (!v) { $("gkeyStatus").textContent = "キーを貼り付けてください"; return; }
+    try { localStorage.setItem(keyName(), v); } catch (e) { $("gkeyStatus").textContent = "この環境では保存できません"; return; }
+    $("gkey").value = ""; $("gkeyStatus").textContent = "保存しました"; refreshMode();
+  });
+  $("gkeyDel").addEventListener("click", function () {
+    try { localStorage.removeItem(keyName()); } catch (e) {}
+    $("gkey").value = ""; $("gkeyStatus").textContent = "削除しました"; refreshMode();
+  });
+  refreshMode();
+  try {
+    if (window.claude && window.claude.use) {
+      window.claude.use("sample").then(function (fn) {
+        if (fn) { sample = fn; refreshMode(); } else noAI();
+      }, noAI);
+    } else { noAI(); }
+  } catch (e) { noAI(); }
+})();
+</script>
+
+</body>
+</html>
