@@ -163,7 +163,7 @@
   <section class="sec" aria-label="その他メモ">
     <div class="item">
       <h2><label for="memo">その他メモ（自由記入）</label></h2>
-      <textarea id="memo" placeholder="上の選択肢にないことを短く書いてください。例：腰痛の訴えあり、湿布を貼付している"></textarea>
+      <textarea id="memo"></textarea>
     </div>
     <div class="item">
       <h2>
@@ -190,8 +190,7 @@
       <span class="status" id="status" role="status"></span>
     </div>
     <p class="note" id="lastRun" aria-live="polite"></p>
-    <p class="note" id="ver">版 2026-11-24b</p>
-    <p class="note">入力例が入っています。「全部クリア」で空にできます。</p>
+    <p class="note" id="ver">版 2026-11-24d</p>
   </section>
 
   <div id="outputs" class="wrap" style="gap:22px"></div>
@@ -267,10 +266,6 @@
   ];
   // どの項目にも自由記述欄を付ける（例文がない項目は共通の案内文）
   ITEMS.forEach(function (it) { if (!it.ph) it.ph = it.label + "について自由に記述"; });
-  var SAMPLE_SEL = { meal: ["全量摂取"], excretion: ["下剤使用"], lastbm: ["昨日"], sleep: ["著変なし"], mental: ["変わりなし"],
-    family: ["家族関係良好"], service: ["デイサービス"], refusal: ["拒否なし"], care: ["状態確認", "服薬確認", "リハビリテーション"] };
-  var SAMPLE_TXT = { meal: "朝はお粥と納豆、昼は配食サービスのムース食、夜は冷凍のムース食。息子介助。次男が調理師のためペースト食を作成している",
-    greet: "インターフォンにて息子が出迎えあり", family: "息子2人と同居" };
 
   var LS = "nursing-record-v2";
   var state = { vital: {}, sel: {}, txt: {}, memo: "", out: {}, date: "", time: "", withHeads: true, withDate: false, autoClear: true, fresh: true };
@@ -310,7 +305,7 @@
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(LS) || "null"); } catch (e) {}
     if (saved) { Object.assign(state, saved); state.fresh = false; }
-    else { state.sel = JSON.parse(JSON.stringify(SAMPLE_SEL)); state.txt = JSON.parse(JSON.stringify(SAMPLE_TXT)); state.fresh = true; }
+    else { state.fresh = true; }
   }
   function save() {
     try { localStorage.setItem(LS, JSON.stringify({ vital: state.vital, sel: state.sel, txt: state.txt, memo: state.memo, out: state.out, date: state.date, time: state.time, withHeads: state.withHeads, withDate: state.withDate, autoClear: state.autoClear })); } catch (e) {}
@@ -392,7 +387,7 @@
           wrap.appendChild(chips);
         }
         if (item.ph) {
-          var inp = el("input"); inp.type = "text"; inp.id = "txt-" + item.id; inp.placeholder = item.ph;
+          var inp = el("input"); inp.type = "text"; inp.id = "txt-" + item.id;
           inp.setAttribute("aria-label", item.label + "（一言）");
           inp.value = state.txt[item.id] || "";
           inp.addEventListener("input", function () { state.txt[item.id] = inp.value; markDirty(); save(); });
