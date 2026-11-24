@@ -190,7 +190,7 @@
       <span class="status" id="status" role="status"></span>
     </div>
     <p class="note" id="lastRun" aria-live="polite"></p>
-    <p class="note" id="ver">版 2026-11-24d</p>
+    <p class="note" id="ver">版 2026-11-24e</p>
   </section>
 
   <div id="outputs" class="wrap" style="gap:22px"></div>
@@ -262,7 +262,7 @@
       opts: ["拒否なし|訪問への拒否なし", "拒否あり|訪問への拒否あり"] },
 
     { id: "care", sec: "care", label: "実施内容", mode: "multi",
-      opts: ["状態確認", "服薬確認", "バイタルサイン測定", "リハビリテーション", "清潔ケア", "排泄ケア", "家族への助言・相談対応", "生活状況の確認", "生活指導", "思いの傾聴"] }
+      opts: ["バイタルサイン測定", "状態確認", "服薬確認", "家族への助言・相談対応", "生活状況の確認", "生活指導", "思いの傾聴", "清潔ケア", "排泄ケア", "リハビリテーション"] }
   ];
   // どの項目にも自由記述欄を付ける（例文がない項目は共通の案内文）
   ITEMS.forEach(function (it) { if (!it.ph) it.ph = it.label + "について自由に記述"; });
