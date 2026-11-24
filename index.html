@@ -64,6 +64,12 @@
     font: inherit; color: var(--fg); background: var(--surface);
     border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; width: 100%; min-width: 0;
   }
+  .vitals { display: grid; grid-template-columns: 1fr; gap: 8px; max-width: 360px; }
+  .vital { display: flex; align-items: center; gap: 6px; }
+  .vital-label { min-width: 4.2em; font-size: .9rem; color: var(--muted); }
+  .vital input { width: 5.5em; flex: 0 0 auto; text-align: center; }
+  .vital-sep { min-width: 0 !important; }
+  .vital-unit { font-size: .85rem; color: var(--muted); min-width: 3em; }
   textarea { min-height: 7em; resize: vertical; line-height: 1.7; }
   input:focus-visible, textarea:focus-visible, button:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
@@ -184,7 +190,7 @@
       <span class="status" id="status" role="status"></span>
     </div>
     <p class="note" id="lastRun" aria-live="polite"></p>
-    <p class="note" id="ver">版 2026-11-02j</p>
+    <p class="note" id="ver">版 2026-11-24a</p>
     <p class="note">入力例が入っています。「全部クリア」で空にできます。</p>
   </section>
 
@@ -238,8 +244,8 @@
       opts: ["定期的に排便|排便は定期的にあり", "下剤使用|下剤使用", "下剤なし|下剤使用なし", "排尿著変なし|排尿に著変なし", "失禁あり|失禁あり", "リハビリパンツ使用|リハビリパンツ使用", "オムツ使用|オムツ使用", "ポータブルトイレ使用|ポータブルトイレ使用"] },
     { id: "lastbm", sec: "life", label: "最終排便", mode: "one",
       opts: ["本日|最終排便は本日あり", "昨日|最終排便は昨日あり", "2日前|最終排便は2日前", "3日以上なし|最終排便から3日以上経過"] },
-    { id: "sleep", sec: "life", label: "睡眠・生活リズム", mode: "one",
-      opts: ["著変なし|睡眠、生活リズムに著変なし", "眠剤内服・眠れている|眠剤内服し夜間眠れている", "不眠あり|夜間の不眠あり", "日中傾眠|日中の傾眠あり", "昼夜逆転傾向|昼夜逆転傾向あり"] },
+    { id: "sleep", sec: "life", label: "睡眠・生活リズム", mode: "multi",
+      opts: ["著変なし|睡眠、生活リズムに著変なし", "眠剤内服・眠れている|眠剤内服し夜間眠れている", "不眠あり|夜間の不眠あり", "中途覚醒あり|中途覚醒あり", "日中傾眠|日中の傾眠あり", "昼夜逆転傾向|昼夜逆転傾向あり"] },
     { id: "room", sec: "life", label: "部屋の整頓", mode: "one",
       opts: ["整頓されている|室内は整頓されている", "やや乱雑|室内がやや乱雑", "転倒リスクあり|室内に物が多く転倒リスクあり"] },
 
@@ -250,7 +256,7 @@
     { id: "greet", sec: "mental", label: "訪問時の様子", mode: "one", opts: ["本人が出迎え|インターフォンを押すと本人出迎えあり。許可を得て入室", "家族が出迎え|家族が出迎えあり"], ph: "例：インターフォンにて息子が出迎えあり" },
 
     { id: "family", sec: "social", label: "住まい・対人関係", mode: "multi", ph: "例：息子2人と同居",
-      opts: ["家族関係良好|家族関係良好", "同居家族あり|同居家族あり", "近隣交流あり|近隣との交流あり", "グループホーム入居|グループホーム入居中", "同居者と良好|同居者との関係良好", "世話人と良好|世話人との関係良好", "施設でトラブルなし|施設でのトラブルなし", "対人トラブルなし|対人関係トラブルなし", "独居|独居", "引きこもりがち|引きこもりがちで、関わる人は少ない"] },
+      opts: ["家族関係良好|家族関係良好", "同居家族あり|同居家族あり", "近隣交流あり|近隣との交流あり", "グループホーム入居|グループホーム入居中", "施設入居|施設入居中", "同居者と良好|同居者との関係良好", "世話人と良好|世話人との関係良好", "施設でトラブルなし|施設でのトラブルなし", "対人トラブルなし|対人関係トラブルなし", "独居|独居", "引きこもりがち|引きこもりがちで、関わる人は少ない"] },
     { id: "service", sec: "social", label: "サービス利用", mode: "multi",
       opts: ["デイサービス|デイサービス利用", "ヘルパー|ヘルパー利用", "訪問リハ|訪問リハビリ利用", "配食サービス|配食サービス利用", "作業所|作業所利用", "通所|通所利用", "サービス利用なし|サービス利用なし"] },
     { id: "refusal", sec: "social", label: "訪問への対応", mode: "one",
@@ -259,13 +265,15 @@
     { id: "care", sec: "care", label: "実施内容", mode: "multi",
       opts: ["状態確認", "服薬確認", "バイタルサイン測定", "リハビリテーション", "清潔ケア", "排泄ケア", "食事介助", "家族への助言・相談対応", "医師への報告", "生活状況の確認", "生活指導", "思いの傾聴"] }
   ];
+  // どの項目にも自由記述欄を付ける（例文がない項目は共通の案内文）
+  ITEMS.forEach(function (it) { if (!it.ph) it.ph = it.label + "について自由に記述"; });
   var SAMPLE_SEL = { meal: ["全量摂取"], excretion: ["下剤使用"], lastbm: ["昨日"], sleep: ["著変なし"], mental: ["変わりなし"],
     family: ["家族関係良好"], service: ["デイサービス"], refusal: ["拒否なし"], care: ["状態確認", "服薬確認", "リハビリテーション"] };
   var SAMPLE_TXT = { meal: "朝はお粥と納豆、昼は配食サービスのムース食、夜は冷凍のムース食。息子介助。次男が調理師のためペースト食を作成している",
     greet: "インターフォンにて息子が出迎えあり", family: "息子2人と同居" };
 
   var LS = "nursing-record-v2";
-  var state = { sel: {}, txt: {}, memo: "", out: {}, date: "", time: "", withHeads: true, withDate: false, autoClear: true, fresh: true };
+  var state = { vital: {}, sel: {}, txt: {}, memo: "", out: {}, date: "", time: "", withHeads: true, withDate: false, autoClear: true, fresh: true };
   var sample = null, ctl = null, busy = false;
   // 入力を変えたのに記録文を作り直していない状態
   var dirty = false;
@@ -306,12 +314,59 @@
     else { state.sel = JSON.parse(JSON.stringify(SAMPLE_SEL)); state.txt = JSON.parse(JSON.stringify(SAMPLE_TXT)); state.fresh = true; }
   }
   function save() {
-    try { localStorage.setItem(LS, JSON.stringify({ sel: state.sel, txt: state.txt, memo: state.memo, out: state.out, date: state.date, time: state.time, withHeads: state.withHeads, withDate: state.withDate, autoClear: state.autoClear })); } catch (e) {}
+    try { localStorage.setItem(LS, JSON.stringify({ vital: state.vital, sel: state.sel, txt: state.txt, memo: state.memo, out: state.out, date: state.date, time: state.time, withHeads: state.withHeads, withDate: state.withDate, autoClear: state.autoClear })); } catch (e) {}
+  }
+
+  /* ---------- バイタル ---------- */
+  var VITALS = [
+    { k: "bt", label: "BT", unit: "℃", ph: "36.5" },
+    { k: "p", label: "P", unit: "回/分", ph: "72" },
+    { k: "spo2", label: "SpO2", unit: "%", ph: "97" },
+    { k: "sys", label: "BP", unit: "/", ph: "128", pair: "dia" }
+  ];
+  function vitalText() {
+    var v = state.vital || {}, g = function (k) { return String(v[k] || "").trim().replace(/[０-９．]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); };
+    var a = [];
+    if (g("bt")) a.push("BT" + g("bt") + "℃");
+    if (g("p")) a.push("P" + g("p") + "回/分");
+    if (g("spo2")) a.push("SpO2 " + g("spo2") + "%");
+    if (g("sys") || g("dia")) a.push("BP" + (g("sys") || "-") + "/" + (g("dia") || "-") + "mmHg");
+    return a.length ? a.join("、") + "。" : "";
+  }
+  function buildVitalInputs(root) {
+    var box = el("section", "sec");
+    box.appendChild(el("h2", null, "バイタル"));
+    var grid = el("div", "vitals");
+    VITALS.forEach(function (f) {
+      var w = el("label", "vital");
+      w.appendChild(el("span", "vital-label", f.label));
+      var inp = el("input"); inp.type = "text"; inp.inputMode = "decimal"; inp.id = "vital-" + f.k; inp.placeholder = f.ph;
+      inp.value = (state.vital || {})[f.k] || "";
+      inp.addEventListener("input", function () {
+        state.vital = state.vital || {}; state.vital[f.k] = inp.value; save();
+        var o = $("out-vital"); if (o) o.value = vitalText();
+      });
+      w.appendChild(inp);
+      if (f.pair) {
+        w.appendChild(el("span", "vital-unit vital-sep", "/"));
+        var inp2 = el("input"); inp2.type = "text"; inp2.inputMode = "decimal"; inp2.id = "vital-" + f.pair; inp2.placeholder = "76";
+        inp2.setAttribute("aria-label", "BP（下）");
+        inp2.value = (state.vital || {})[f.pair] || "";
+        inp2.addEventListener("input", function () {
+          state.vital = state.vital || {}; state.vital[f.pair] = inp2.value; save();
+          var o = $("out-vital"); if (o) o.value = vitalText();
+        });
+        w.appendChild(inp2); w.appendChild(el("span", "vital-unit", "mmHg"));
+      } else w.appendChild(el("span", "vital-unit", f.unit));
+      grid.appendChild(w);
+    });
+    box.appendChild(grid); root.appendChild(box);
   }
 
   /* ---------- 入力欄 ---------- */
   function buildInputs() {
     var root = $("inputs"); root.innerHTML = "";
+    buildVitalInputs(root);
     SEC.forEach(function (sec) {
       var box = el("section", "sec");
       var h = el("h2", null, sec.title); box.appendChild(h);
@@ -355,6 +410,18 @@
   function buildOutputs() {
     var root = $("outputs"); root.innerHTML = "";
     var head = el("h2", null, "記録"); root.appendChild(head);
+    (function () {
+      var w = el("div", "out");
+      var l = el("h3", null, "バイタル"); l.id = "oh-vital";
+      var ta = el("textarea"); ta.id = "out-vital"; ta.setAttribute("aria-labelledby", "oh-vital");
+      ta.style.minHeight = "3em"; ta.value = vitalText();
+      ta.placeholder = "上のバイタル欄に入力するとここに入ります。";
+      var cb = el("button", "btn copy-one", "コピー"); cb.type = "button"; cb.setAttribute("aria-label", "バイタルをコピー");
+      cb.addEventListener("click", function () { copyOne(ta, cb); });
+      var hd = el("div", "out-head"); hd.appendChild(l); hd.appendChild(cb);
+      var box = el("div", "out-box"); box.appendChild(hd); box.appendChild(ta);
+      w.appendChild(box); root.appendChild(w);
+    })();
     SEC.forEach(function (sec) {
       var w = el("div", "out");
       var l = el("h3", null, sec.title); var lid = "oh-" + sec.key; l.id = lid;
@@ -655,6 +722,8 @@
       var p = state.date.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]);
       parts.push("訪問日時：" + p[0] + "年" + (+p[1]) + "月" + (+p[2]) + "日(" + "日月火水木金土".charAt(d.getDay()) + ")" + (state.time ? " " + state.time : ""));
     }
+    var vt = ($("out-vital").value || "").trim();
+    if (vt) parts.push(state.withHeads ? "【バイタル】\n" + vt : vt);
     SEC.forEach(function (sec) {
       var t = ($("out-" + sec.key).value || "").trim(); if (!t) return;
       parts.push(state.withHeads ? "【" + sec.title + "】\n" + t : t);
@@ -703,7 +772,7 @@
     var fallback = function () { toast("コピーできませんでした。記録欄を長押しして手動でコピーしてください"); };
     var done = function () {
       if (state.autoClear !== false) {
-        state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
+        state.vital = {}; state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
         state.date = today(); state.time = nowTime(); $("date").value = state.date; $("time").value = state.time;
         dirty = false;
         save(); buildInputs(); buildOutputs(); toast("コピーしました。入力と記録は消しました");
@@ -720,7 +789,7 @@
       return;
     }
     clearTimeout(clearTimer); clearBtn.dataset.armed = ""; clearBtn.textContent = "全部クリア";
-    state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
+    state.vital = {}; state.sel = {}; state.txt = {}; state.memo = ""; state.out = {};
     save(); buildInputs(); buildOutputs(); toast("すべて空にしました");
   });
 
@@ -758,7 +827,7 @@
     { k: "chohen", label: "変化なしは「著変なし」", rule: "メモに異常や変化の記載がない項目は、「食事、排泄に著変なし。」のように「著変なし」で1文にまとめる。異常や変化がある項目は個別に書く。" },
     { k: "honnin", label: "「本人」「家族」で統一", rule: "利用者は「本人」と書く。「利用者」「患者」「〜さん」「ご本人」は使わない。同居者や介護者は、メモに続柄があれば「息子」「妻」のように続柄で書き、なければ「家族」と書く。「ご家族」は使わない。" },
     { k: "num", label: "数値は半角＋単位", rule: "数値はすべて半角で書き、単位を付ける（例：BT36.5℃、BP128/76mmHg、SpO2 97%、水分約800ml、週2回）。全角数字や漢数字は使わない。" },
-    { k: "vital", label: "バイタルは BT→BP→P→SpO2", rule: "バイタルサインがメモにあるときは、「BT36.5℃、BP128/76mmHg、P72回/分、SpO2 97%。」のように BT、BP、P、SpO2 の順で1文にまとめる。「体温」「血圧」「脈拍」「酸素飽和度」ではなく略語で書く。メモにない項目は書かない。" },
+    { k: "vital", label: "バイタルは BT→P→SpO2→BP", rule: "バイタルサインがメモにあるときは、「BT36.5℃、P72回/分、SpO2 97%、BP128/76mmHg。」のように BT、P、SpO2、BP の順で1文にまとめる。「体温」「血圧」「脈拍」「酸素飽和度」ではなく略語で書く。メモにない項目は書かない。" },
     { k: "tame", label: "理由と対応は「〜のため〜実施」", rule: "ケアの理由と実施内容は、「便秘傾向のため腹部マッサージ実施。」のように「〜のため〜実施」の形でつなぐ。理由がメモにないときは理由を作らず、実施内容だけを書く。" },
     { k: "uttae", label: "発言は「〜の訴えあり」", rule: "本人や家族の発言は、「腰痛の訴えあり。」「夜間2回トイレに起きたとのこと。」のように「〜の訴えあり」「〜とのこと」で書く。カギ括弧「」で発言をそのまま引用しない。" },
     { k: "shido", label: "助言は「〜を伝える」「〜指導」", rule: "本人や家族への説明・助言は、「水分摂取の必要性を伝える。」「転倒予防について指導。」のように「〜を伝える」「〜指導」で書く。「〜するように言った」「〜をお願いした」は使わない。" },
